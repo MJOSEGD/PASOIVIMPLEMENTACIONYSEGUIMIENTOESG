@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive ESG Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f9;
+      }
+
+      header {
+        text-align: center;
+        padding: 20px;
+        background-color: #4d6c96;
+        color: white;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 10px;
+      }
+
+      .chart-container {
+        margin: 20px auto;
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .chart-container h3 {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .input-container {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .input-container input {
+        padding: 10px;
+        font-size: 16px;
+        margin: 5px;
+        width: 150px;
+      }
+
+      .input-container button {
+        padding: 10px 20px;
+        background-color: hsl(227, 62%, 55%);
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px;
+      }
+
+      .input-container button:hover {
+        background-color: #45a049;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Dashboard ESG: Gráficos Dinámicos de Burbujas</h1>
+    </header>
+
+    <div class="container">
+      <div class="input-container">
+        <h2>Ingresa Puntuaciones por Tema</h2>
+        <div id="input-ambientales">
+          <h3>Ambientales (Escala: 0-100)</h3>
+        </div>
+        <button onclick="updateChart('ambientales')">
+          Actualizar Ambientales
+        </button>
+
+        <div id="input-sociales">
+          <h3>Sociales (Escala: 0-120)</h3>
+        </div>
+        <button onclick="updateChart('sociales')">Actualizar Sociales</button>
+
+        <div id="input-gobernanza">
+          <h3>Gobernanza (Escala: 0-130)</h3>
+        </div>
+        <button onclick="updateChart('gobernanza')">
+          Actualizar Gobernanza
+        </button>
+      </div>
+
+      <div class="chart-container">
+        <h3>Gráfico Ambiental</h3>
+        <canvas id="chart-ambientales"></canvas>
+        <button onclick="downloadChart('chart-ambientales', 'Ambientales')">
+          Descargar Gráfico
+        </button>
+      </div>
+
+      <div class="chart-container">
+        <h3>Gráfico Social</h3>
+        <canvas id="chart-sociales"></canvas>
+        <button onclick="downloadChart('chart-sociales', 'Sociales')">
+          Descargar Gráfico
+        </button>
+      </div>
+
+      <div class="chart-container">
+        <h3>Gráfico de Gobernanza</h3>
+        <canvas id="chart-gobernanza"></canvas>
+        <button onclick="downloadChart('chart-gobernanza', 'Gobernanza')">
+          Descargar Gráfico
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // Configuración inicial de temas y escalas
+      const temas = {
+        ambientales: [
+          "Biodiversidad",
+          "Gestión del Agua",
+          "Vertidos",
+          "Energía",
+          "Emisiones",
+          "Urbanización Sostenible",
+          "Construcción Ecológica",
+          "Economía Circular",
+          "Consumo Responsable",
+          "Gestión de Residuos",
+        ],
+        sociales: [
+          "Derechos Humanos",
+          "Innovación en Negocios",
+          "Índice de Salud",
+          "Compromiso con Comunidad",
+          "Inclusión y Diversidad",
+          "Privacidad y Seguridad",
+          "Desarrollo Profesional",
+          "Inclusión Socioeconómica",
+          "Sostenibilidad Alimentaria",
+        ],
+        gobernanza: [
+          "Gobernanza Institucional",
+          "Participación Stakeholders",
+          "Transparencia Corporativa",
+          "Estándares ESG",
+          "Matriz de Cumplimiento",
+          "Gestión de Crisis",
+          "Innovación Digital",
+          "Sostenibilidad Financiera",
+        ],
+      };
+
+      const maxScale = {
+        ambientales: 100,
+        sociales: 120,
+        gobernanza: 130,
+      };
+
+      // Generar gama de colores para cada ámbito
+      function generateColors(baseColor, count) {
+        const colors = [];
+        for (let i = 0; i < count; i++) {
+          const opacity = 0.8 - i * 0.05;
+          colors.push(baseColor.replace("0.8", opacity.toFixed(2)));
+        }
+        return colors;
+      }
+
+      const colores = {
+        ambientales: generateColors(
+          "rgba(46, 204, 113, 0.8)",
+          temas.ambientales.length
+        ),
+        sociales: generateColors(
+          "rgba(241, 196, 15, 0.8)",
+          temas.sociales.length
+        ),
+        gobernanza: generateColors(
+          "rgba(142, 68, 173, 0.8)",
+          temas.gobernanza.length
+        ),
+      };
+
+      // Datos iniciales
+      const datos = {
+        ambientales: Array(temas.ambientales.length).fill(0),
+        sociales: Array(temas.sociales.length).fill(0),
+        gobernanza: Array(temas.gobernanza.length).fill(0),
+      };
+
+      // Renderizar inputs dinámicos
+      function renderInputs() {
+        Object.keys(temas).forEach((tema) => {
+          const container = document.getElementById(`input-${tema}`);
+          temas[tema].forEach((item, index) => {
+            const input = document.createElement("input");
+            input.type = "number";
+            input.id = `${tema}-${index}`;
+            input.placeholder = item;
+            container.appendChild(input);
+          });
+        });
+      }
+
+      // Crear gráficos iniciales
+      const charts = {};
+
+      function createChart(canvasId, tema) {
+        const ctx = document.getElementById(canvasId).getContext("2d");
+        return new Chart(ctx, {
+          type: "bubble",
+          data: {
+            datasets: temas[tema].map((label, index) => ({
+              label: label,
+              data: [
+                {
+                  x: index + 1,
+                  y: datos[tema][index],
+                  r: (datos[tema][index] / maxScale[tema]) * 50, // Tamaño proporcional
+                },
+              ],
+              backgroundColor: colores[tema][index],
+            })),
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { beginAtZero: true, max: temas[tema].length + 1 },
+              y: { beginAtZero: true, max: maxScale[tema] },
+            },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    return `${context.dataset.label}: ${context.raw.y}`;
+                  },
+                },
+              },
+            },
+            animation: {
+              duration: 1500,
+              easing: "easeOutBounce",
+            },
+          },
+        });
+      }
+
+      function initCharts() {
+        charts.ambientales = createChart("chart-ambientales", "ambientales");
+        charts.sociales = createChart("chart-sociales", "sociales");
+        charts.gobernanza = createChart("chart-gobernanza", "gobernanza");
+      }
+
+      // Actualizar gráfico
+      function updateChart(tema) {
+        temas[tema].forEach((_, index) => {
+          const input = document.getElementById(`${tema}-${index}`);
+          datos[tema][index] = parseFloat(input.value) || 0;
+        });
+        charts[tema].data.datasets = temas[tema].map((label, index) => ({
+          label: label,
+          data: [
+            {
+              x: index + 1,
+              y: datos[tema][index],
+              r: (datos[tema][index] / maxScale[tema]) * 50, // Tamaño proporcional
+            },
+          ],
+          backgroundColor: colores[tema][index],
+        }));
+        charts[tema].update();
+      }
+
+      // Descargar gráfico como imagen
+      function downloadChart(canvasId, filename) {
+        const link = document.createElement("a");
+        link.href = document.getElementById(canvasId).toDataURL("image/png");
+        link.download = `${filename}.png`;
+        link.click();
+      }
+
+      // Inicializar todo
+      renderInputs();
+      initCharts();
+    </script>
+  </body>
+</html>
